@@ -12,6 +12,7 @@ syntax: glob
 .classpath
 .project
 .manager
+.metadata
 .scala_dependencies
 
 # idea
