@@ -28,6 +28,7 @@ tmp*
 dist
 test-output
 build.log
+dependency-reduced-pom.xml
 
 # other scm
 .svn

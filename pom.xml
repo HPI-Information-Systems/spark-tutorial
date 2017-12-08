@@ -52,12 +52,14 @@
       <version>4.11</version>
       <scope>test</scope>
     </dependency>
+
     <dependency>
       <groupId>org.specs2</groupId>
       <artifactId>specs2-core_${scala.compat.version}</artifactId>
       <version>2.4.16</version>
       <scope>test</scope>
     </dependency>
+
     <dependency>
       <groupId>org.scalatest</groupId>
       <artifactId>scalatest_${scala.compat.version}</artifactId>
@@ -119,46 +121,6 @@
           </includes>
         </configuration>
       </plugin>
-
-      <!--<plugin>-->
-        <!--&lt;!&ndash; Build an executable JAR &ndash;&gt;-->
-        <!--<groupId>org.apache.maven.plugins</groupId>-->
-        <!--<artifactId>maven-jar-plugin</artifactId>-->
-        <!--<configuration>-->
-          <!--<archive>-->
-            <!--<manifest>-->
-              <!--<addClasspath>true</addClasspath>-->
-              <!--<classpathPrefix>lib/</classpathPrefix>-->
-              <!--<mainClass>de.hpi.templates.TestNumbers</mainClass>-->
-            <!--</manifest>-->
-          <!--</archive>-->
-        <!--</configuration>-->
-      <!--</plugin>-->
-
-      <!--<plugin>-->
-        <!--<artifactId>maven-assembly-plugin</artifactId>-->
-        <!--<groupId>org.apache.maven.plugins</groupId>-->
-        <!--<executions>-->
-          <!--<execution>-->
-            <!--<id>make-executable-jar-with-dependencies</id>-->
-            <!--<phase>package</phase>-->
-            <!--<goals>-->
-              <!--<goal>single</goal>-->
-            <!--</goals>-->
-            <!--<configuration>-->
-              <!--<archive>-->
-                <!--<manifest>-->
-                  <!--<addClasspath>true</addClasspath>-->
-                  <!--<mainClass>de.hpi.templates.TestNumbers</mainClass>-->
-                <!--</manifest>-->
-              <!--</archive>-->
-              <!--<descriptorRefs>-->
-                <!--<descriptorRef>jar-with-dependencies</descriptorRef>-->
-              <!--</descriptorRefs>-->
-            <!--</configuration>-->
-          <!--</execution>-->
-        <!--</executions>-->
-      <!--</plugin>-->
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
