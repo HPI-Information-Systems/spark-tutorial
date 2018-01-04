@@ -1,13 +1,13 @@
 package de.hpi.spark_tutorial
 
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object SimpleSpark extends App {
 
   override def main(args: Array[String]): Unit = {
     var sparkBuilder = SparkSession
       .builder()
-      .appName("Spark SQL basic example")
+      .appName("SimpleSpark")
       .master("local[4]")
 
     val sparkSession = sparkBuilder.getOrCreate()
@@ -20,7 +20,7 @@ object SimpleSpark extends App {
       .foreach(println(_))
 
     // DataFrame to Dataset
-
+    var df : DataFrame = null
 
     // Dataset to DataFrame
 
