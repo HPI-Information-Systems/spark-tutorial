@@ -70,8 +70,6 @@ object SimpleSpark extends App {
     //more syntactic sugar, if you only use the parameter once you do not need to declare it, simply use it with '_'.
     //This also works for multiple parameters if every parameter is used exactly once (first _ is the first parameter, second underscore the second parameter,...)
     println(smallListOfNumbers.map( _*2+0.5).head)
-    //more syntactic sugar: parameterless functions can be called without the parantheses
-    println(smallListOfNumbers.map( i => i*2+0.5).head) //equivalent to the previous line
 
     //-------------------------------------------------------------------------------------------------------------------
     //finished lamda basics
