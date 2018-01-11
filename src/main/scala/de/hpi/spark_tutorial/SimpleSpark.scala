@@ -6,236 +6,323 @@ import org.apache.spark.ml.classification.DecisionTreeClassificationModel
 import org.apache.spark.ml.classification.DecisionTreeClassifier
 import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
 import org.apache.spark.ml.feature.{IndexToString, StringIndexer, VectorIndexer}
+import org.apache.log4j.Logger
+import org.apache.log4j.Level
+
+// A Scala case class; works out of the box as Dataset type using Spark's implicit encoders
+case class Person(name:String, surname:String, age:Int)
+
+// A non-case class; requires an encoder to work as Dataset type
+class Pet(var name:String, var age:Int) {
+  override def toString = s"Pet(name=$name, age=$age)"
+}
 
 object SimpleSpark extends App {
 
   override def main(args: Array[String]): Unit = {
 
-    var sparkBuilder = SparkSession
-      .builder()
-      .appName("Spark SQL basic example")
-      .master("local[4]") //local, with 4 cores working
+    // Turn off logging
+    Logger.getLogger("org").setLevel(Level.OFF)
+    Logger.getLogger("akka").setLevel(Level.OFF)
 
-    val spark = sparkBuilder.getOrCreate()
-
-    //importing implict encoders for standard library classes and tuples
-    import spark.implicits._
-
-    //-------------------------------------------------------------------------------------------------------------------
-    //loading data
-    //-------------------------------------------------------------------------------------------------------------------
-
-    //create Dataset programatically:
-    val numbers = spark.sqlContext.createDataset((0 until 100).toList)
-    //Reading from files:
-    val employees = spark.read // reader has specific options
-      .option("inferSchema", "true")
-      .option("header", "true")
-      .csv("src/main/resources/employees.csv").as[(String,Int,Double,String)] //many file formats supported
-    //Reading from database: (needs database being setup and accessible as well as driver class in maven)
-//    val top_templates = spark.sqlContext.read.format("jdbc").
-//      option("url", "jdbc:postgresql://localhost/changedb").
-//      option("driver", "org.postgresql.Driver").
-//      option("useUnicode", "true").
-//      option("useSSL", "false").
-//      option("user", "dummy").
-//      option("password", "dummy").
-//      option("dbtable","templates_infoboxes").
-//      load()
-
-    //-------------------------------------------------------------------------------------------------------------------
-    //finished loading data
-    //-------------------------------------------------------------------------------------------------------------------
-
-    //-------------------------------------------------------------------------------------------------------------------
-    //lamda basics
-    //-------------------------------------------------------------------------------------------------------------------
+    //------------------------------------------------------------------------------------------------------------------
+    // Lamda basics (for Scala)
+    //------------------------------------------------------------------------------------------------------------------
 
     //spark uses user defined functions to transform data, lets first look at how functions are defined in scala:
-    val smallListOfNumbers = List(1,2,3,4,5)
-    //map function from int to double:
-    def mySimpleMapFunction(i:Int):Double = {
-      i*2 +0.5
+    val smallListOfNumbers = List(1, 2, 3, 4, 5)
+
+    // A Scala map function from int to double
+    def squareAndAdd(i: Int): Double = {
+      i * 2 + 0.5
     }
-    //functions can be defined in line (without curly brackets)
-    def mySimpleMapFunction2(i:Int):Double = i*2 +0.5
-    //scala can infer the return type:
-    def mySimpleMapFunction3(i:Int) = i*2 +0.5
-    //functions can be anonymous and assigned to variables:
-    val myMapFunctionAsFunctionInstance = (i:Int) => i*2 +0.5
-    //all variants are the same:
-    println(smallListOfNumbers.map(mySimpleMapFunction).head)
-    println(smallListOfNumbers.map(myMapFunctionAsFunctionInstance).head)
-    println(smallListOfNumbers.map( i => i*2+0.5).head) //anonymous functions can be defined when needed. This allows to also skip the parameter type declaration, since the compiler can infer it
-    //more syntactic sugar, if you only use the parameter once you do not need to declare it, simply use it with '_'.
-    //This also works for multiple parameters if every parameter is used exactly once (first _ is the first parameter, second underscore the second parameter,...)
-    println(smallListOfNumbers.map( _*2+0.5).head)
 
-    //-------------------------------------------------------------------------------------------------------------------
-    //finished lamda basics
-    //-------------------------------------------------------------------------------------------------------------------
+    // A Scala map function defined in-line (without curly brackets)
+    def squareAndAdd2(i: Int): Double = i * 2 + 0.5
 
+    // A Scala map function inferring the return type
+    def squareAndAdd3(i: Int) = i * 2 + 0.5
 
-    //-------------------------------------------------------------------------------------------------------------------
-    //basic transformations
-    //-------------------------------------------------------------------------------------------------------------------
+    // An anonymous Scala map function assigned to a variable
+    val squareAndAddFunction = (i: Int) => i * 2 + 0.5
 
-    //basic transformations on datasets return new datasets:
-    val mapped = numbers.map(i => "This is a number: " + i) //simple map function, just as seen above with the scala list
-    println(mapped.head(5))
-    val filtered = mapped.filter(s => s.contains("1")) //simple filter function
-    println(filtered.head(5))
-    //basic terminal operations:
-    val collected = filtered.collect() //collect is a terminal operation that returns the entire dataset to the driver
-    val asCsvString = filtered.reduce((s1,s2) => s1 + "," + s2) //reduce combines the values to one value of the same type
-    filtered.foreach( s => println(s)) //for each iterates over everything --> why is this almost always a bad idea? What are the use cases?
+    // Different variants to apply the same function
+    println(smallListOfNumbers.map(squareAndAdd))
+    println(smallListOfNumbers.map(squareAndAdd2))
+    println(smallListOfNumbers.map(squareAndAdd3))
+    println(smallListOfNumbers.map(squareAndAddFunction))
+    println(smallListOfNumbers.map(i => i * 2 + 0.5)) // anonymous function; compiler can infers types
+    println(smallListOfNumbers.map(_ * 2 + 0.5)) // syntactic sugar: '_' maps to first (second, third, ...) parameter
+
+    //------------------------------------------------------------------------------------------------------------------
+    // Setting up a Spark Session
+    //------------------------------------------------------------------------------------------------------------------
+
+    // Create a SparkSession to work with Spark
+    val sparkBuilder = SparkSession
+      .builder()
+      .appName("SparkTutorial")
+      .master("local[4]") // local, with 4 worker cores
+    val spark = sparkBuilder.getOrCreate()
+
+    // Set the default number of shuffle partitions to 5 (default is 200, which is too high for local deployment)
+    spark.conf.set("spark.sql.shuffle.partitions", "5") //
+
+    // Importing implicit encoders for standard library classes and tuples that are used as Dataset types
+    import spark.implicits._
+
+    //------------------------------------------------------------------------------------------------------------------
+    // Loading data
+    //------------------------------------------------------------------------------------------------------------------
+
+    // Create a Dataset programmatically
+    val numbers = spark.createDataset((0 until 100).toList)
+
+    // Read a Dataset from a file
+    val employees = spark.read
+      .option("inferSchema", "true")
+      .option("header", "true")
+      .csv("src/main/resources/employees.csv") // also text, json, jdbc, parquet
+      .as[(String, Int, Double, String)]
+
+    // Read a Dataset from a database: (requires a database being setup as well as driver class in maven)
+//    val top_templates = spark.sqlContext.read.format("jdbc")
+//      .option("url", "jdbc:postgresql://localhost/changedb")
+//      .option("driver", "org.postgresql.Driver")
+//      .option("useUnicode", "true")
+//      .option("useSSL", "false")
+//      .option("user", "dummy")
+//      .option("password", "dummy")
+//      .option("dbtable","templates_infoboxes")
+//      .load()
+
+    //------------------------------------------------------------------------------------------------------------------
+    // Basic transformations
+    //------------------------------------------------------------------------------------------------------------------
+
+    // Basic transformations on datasets return new datasets
+    val mapped = numbers.map(i => "This is a number: " + i)
+    val filtered = mapped.filter(s => s.contains("1"))
+    val sorted = filtered.sort()
+    List(numbers, mapped, filtered, sorted).foreach(dataset => println(dataset.getClass))
+    sorted.show()
+
+    // Basic terminal operations
+    val collected = filtered.collect() // collects the entire dataset to the driver process
+    val reduced = filtered.reduce((s1, s2) => s1 + "," + s2) // reduces all values successively to one
+    filtered.foreach(s => println(s)) // performs an action for each element (take care where the action is evaluated!)
+    List(collected, reduced).foreach(result => println(result.getClass))
 
     // DataFrame and Dataset
-    val untyped = numbers.toDF() //data frame is the untyped variant
-    val mappedBecomesTyped = untyped.map(r => r.get(0).toString) //map returns a typed dataset again
-    val asInteger = untyped.as[Int] //as-function casts to a typed dataset
+    val untypedDF = numbers.toDF() // DS to DF
+    val stringTypedDS = untypedDF.map(r => r.get(0).toString) // DF to DS via map
+    val integerTypedDS = untypedDF.as[Int] // DF to DS via as() function that cast columns to a concrete types
+    List(untypedDF, stringTypedDS, integerTypedDS).foreach(result => println(result.getClass))
 
-    //mapping to tuples works
-    numbers.map(i => (i,"this is an arbitrary String"))
-      .take(10).foreach(println(_))
+    // Mapping to tuples
+    numbers
+      .map(i => (i, "nonce", 3.1415, true))
+      .take(10)
+      .foreach(println(_))
 
-    //sql on dataframes
-    employees.createOrReplaceTempView("employee") //making this dataframe visible as a table
-    val sqlResult = spark.sql("SELECT * FROM employee WHERE Age > 95") //performing an sql query on the table
-    sqlResult.collect().foreach(println(_))
+    // SQL on DataFrames
+    employees.createOrReplaceTempView("employee") // make this dataframe visible as a table
+    val sqlResult = spark.sql("SELECT * FROM employee WHERE Age > 95") // perform an sql query on the table
 
-    //grouping datasets and mapping groups
-    val topEarners = employees.groupByKey{case (name,age,salary,company) => company}
-      .mapGroups{case (key,iterator) => {
-        val topSalary = iterator.toList.maxBy( t => t._3) //what could be problematic here?
-        (key,topSalary._1)
-      }}
-    topEarners.collect().foreach(println(_))
+    import org.apache.spark.sql.functions._
 
-    //-------------------------------------------------------------------------------------------------------------------
-    //finished basic transformations
-    //-------------------------------------------------------------------------------------------------------------------
+    sqlResult // DF
+      .as[(String, Int, Double, String)] // DS
+      .sort(desc("Salary")) // desc() is a standard function from the spark.sql.functions package
+      .head(10)
+      .foreach(println(_))
 
-    //-------------------------------------------------------------------------------------------------------------------
-    //printing info
-    //-------------------------------------------------------------------------------------------------------------------
+    // Grouping and aggregation for Datasets
+    val topEarners = employees
+      .groupByKey { case (name, age, salary, company) => company }
+      .mapGroups { case (key, iterator) =>
+          val topEarner = iterator.toList.maxBy(t => t._3) // could be problematic: Why?
+          (key, topEarner._1, topEarner._3)
+      }
+      .sort(desc("_3"))
+    topEarners.collect().foreach(t => println(t._1 + "'s top earner is " + t._2 + " with salary " + t._3))
 
-    employees.printSchema()
-    topEarners.explain()
+    //------------------------------------------------------------------------------------------------------------------
+    // Analyzing Datasets and DataFrames
+    //------------------------------------------------------------------------------------------------------------------
 
-    //-------------------------------------------------------------------------------------------------------------------
-    //finished printing info
-    //-------------------------------------------------------------------------------------------------------------------
+    employees.printSchema() // print schema of dataset/dataframe
+    topEarners.explain() // print Spark's physical query plan for this dataset/dataframe
+    topEarners.show() // print the content of this dataset/dataframe
 
+    //------------------------------------------------------------------------------------------------------------------
+    // Custom types
+    //------------------------------------------------------------------------------------------------------------------
 
+    // (see definition above) A Scala case class; works out of the box as Dataset type using Spark's implicit encoders
+//   case class Person(name:String, surname:String, age:Int)
 
-    //-------------------------------------------------------------------------------------------------------------------
-    //Custom Types
-    //-------------------------------------------------------------------------------------------------------------------
+    val persons = spark.createDataset(List(
+      Person("Barack", "Obama", 40),
+      Person("George", "R.R. Martin", 65),
+      Person("Elon", "Musk", 34)))
 
-    //custom types work out of the box if they are case classes (if implicits are imported:
-    val myPersons = spark.createDataset(List(
-      MyPerson("Barack","Obama",40),
-      MyPerson("George","R.R. Martin",65),
-      MyPerson("Elon","Musk",34)))
-    myPersons.map(p => p.name + " says hello")
-      .collect().foreach(println(_))
+    persons
+      .map(_.name + " says hello")
+      .collect()
+      .foreach(println(_))
 
-    //custom types that are no case classes need to have an encoder defined:
-    implicit def changeRecordTupleListEncoder: Encoder[Pet] = org.apache.spark.sql.Encoders.kryo[Pet]
+    // (see definition above) A non-case class; requires an encoder to work as Dataset type
+ //   class Pet(var name:String, var age:Int) {
+ //     override def toString = s"Pet(name=$name, age=$age)"
+ //   }
 
-    val pets = spark.createDataset(List(new Pet("Garfield",5),new Pet("Paddington",2)))
-    pets.map(p => p.name + " is cute") //encoder gets passed to method implicitly
-      .collect().foreach(println(_))
+    implicit def PetEncoder: Encoder[Pet] = org.apache.spark.sql.Encoders.kryo[Pet]
 
-    //-------------------------------------------------------------------------------------------------------------------
-    //Finished Custom Types
-    //-------------------------------------------------------------------------------------------------------------------
+    val pets = spark.createDataset(List(
+      new Pet("Garfield", 5),
+      new Pet("Paddington", 2)))
 
-    //-------------------------------------------------------------------------------------------------------------------
-    //Shared Variables across Executors
-    //-------------------------------------------------------------------------------------------------------------------
-    //the Problem:
-    val allowedNames = Set("Berget","Bianka","Cally")
-    val ok = employees.filter( e => allowedNames.contains(e._1)) //a copy of allowedNames is shipped to each executor
-    val recheck = employees.filter( e => !allowedNames.contains(e._1) && e._2 >60 ) //a copy of allowedNames is shipped to each executor again!
-    val forbidden = employees.filter( e => !allowedNames.contains(e._1) && e._2 <= 60) //a copy of allowedNames is shipped to each executor again!
-    //if allowedNames is a large data structure this is expensive
-    //solution: broadcast variable:
-    val allowedNamesBroadcasted = spark.sparkContext.broadcast(allowedNames)
-    val okWithBroadcast = employees.filter(e => allowedNamesBroadcasted.value.contains(e._1)) //copy of variable gets shipped and cached to each executor
-    val recheckWithBroadcast = employees.filter( e => !allowedNamesBroadcasted.value.contains(e._1) && e._2 >60 ) //allowedNamesBroadcasted is already there, nothing needs to get shipped!
-    val forbiddenWithBroadcast = employees.filter( e => !allowedNamesBroadcasted.value.contains(e._1) && e._2 <= 60) //allowedNamesBroadcasted is already there, nothing needs to get shipped!
-    //destroy the variable to release memory:
-    allowedNamesBroadcasted.destroy()
+    pets
+      .map(_ + " is cute") // our Pet encoder gets passed to method implicitly
+      .collect()
+      .foreach(println(_))
 
-    //accumulators: in principle these are shared variables that you can add to. This gives you the opportunity to add a side-effect to a computation.
-    //Only use them with an Action, not a transformation, transformations should always be free of side effects as they may be rerun multiple times!
-    //in practice, use with care: http://imranrashid.com/posts/Spark-Accumulators/
-    val appleAccumulator = spark.sparkContext.longAccumulator("My Accumulator")
-    recheck.foreach( e => if(e._4 == "Apple") appleAccumulator.add(1)) //really only useful if you do something else in the foreach and want to add to the accumulator while you are doing it (for example for debug info) - otherwise it is simpler to just use filter and count!
-    println("There are " + appleAccumulator.value + " employees of apple in the recheck dataset")
+    //------------------------------------------------------------------------------------------------------------------
+    // Shared Variables across Executors
+    //------------------------------------------------------------------------------------------------------------------
 
-    //-------------------------------------------------------------------------------------------------------------------
-    //Finished Variables across Executors
-    //-------------------------------------------------------------------------------------------------------------------
+    // The problem: shipping large variables multiple times to executors is expensive
+    val names = List("Berget", "Bianka", "Cally")
+    val filtered1 = employees.filter(e => names.contains(e._1)) // a copy of names is shipped to each executor
+    val filtered2 = employees.filter(e => !names.contains(e._1)) // a copy of names is shipped to each executor again!
+    val filtered3 = employees.filter(e => names(1).equals(e._1)) // a copy of names is shipped to each executor again!
+    List(filtered1, filtered2, filtered3).foreach(_.show(1))
 
+    // Solution: broadcast variable
+    val bcNames = spark.sparkContext.broadcast(names)
+    val bcFiltered1 = employees.filter(e => bcNames.value.contains(e._1)) // a copy of names is shipped to each executor
+    val bcFiltered2 = employees.filter(e => !bcNames.value.contains(e._1)) // a copy of names is already present
+    val bcFiltered3 = employees.filter(e => bcNames.value(1).equals(e._1)) // a copy of names is already present
+    List(bcFiltered1, bcFiltered2, bcFiltered3).foreach(_.show(1))
+    bcNames.destroy() // finally, destroy the broadcast variable to release it from memory in each executor
 
-    //-------------------------------------------------------------------------------------------------------------------
-    //Basic Machine Learning example:
-    //This is a slightly simplified and more commented version of https://spark.apache.org/docs/2.2.0/ml-classification-regression.html#decision-tree-classifier
-    //-------------------------------------------------------------------------------------------------------------------
-    val data = spark.read.format("libsvm").load("src/main/resources/sample_libsvm_data.txt")
+    // Accumulators:
+    // - shared variables that distributed executors can add to
+    // - enable side-effects in pipeline computations (e.g. for debugging)
+    // - only usable in actions, not in transformations (transformations should not have side effects as they may be re-run!)
+    // - should be used with care: http://imranrashid.com/posts/Spark-Accumulators/
+    val appleAccumulator = spark.sparkContext.longAccumulator("Apple Accumulator")
+    val microsoftAccumulator = spark.sparkContext.longAccumulator("Microsoft Accumulator")
+    employees.foreach(
+      e => if (e._4 == "Apple") appleAccumulator.add(1)
+      else if (e._4 == "Microsoft") microsoftAccumulator.add(1)
+      /* ... */) // accumulators are useful only if the action also does something else is; otherwise use filter and count!
+    println("There are " + appleAccumulator.value + " employees at Apple")
+    println("There are " + microsoftAccumulator.value + " employees at Microsoft")
 
-    data.printSchema() //libsvm data format is read into spark into a data frame with two columns: a label and all the features
+    //------------------------------------------------------------------------------------------------------------------
+    // Machine Learning
+    // https://spark.apache.org/docs/2.2.0/ml-classification-regression.html#decision-tree-classifier
+    //------------------------------------------------------------------------------------------------------------------
 
-    //new concepts to understand about apache spark machine learning:
-    /*
-    Transformer:   A Transformer is an algorithm which can transform one DataFrame into another DataFrame. E.g., an ML model is a Transformer which transforms a DataFrame with features into a DataFrame with predictions.
-    Estimator:     An Estimator is an algorithm which can be fit on a DataFrame to produce a Transformer. E.g., a learning algorithm is an Estimator which trains on a DataFrame and produces a model. (Example: DecisionTree)
-    Pipeline:      A Pipeline chains multiple Transformers and Estimators together to specify an ML workflow.
-     */
+    val data = spark
+      .read
+      .format("libsvm")
+      .load("src/main/resources/sample_libsvm_data.txt")
 
-    // Automatically identify categorical features, and index them. The Vectors only contain numerical values, so we need to flag which values are categorical
+    data.printSchema() // Spark reads the libsvm data into a dataframe with two columns: label and features
+    data.show(10)
+
+    // Concepts in Spark's machine learning module:
+    // - Transformer: An algorithm (function) that transforms one DataFrame into another DataFrame.
+    //                I.e. an ML model that transforms a DataFrame of features into a DataFrame of predictions.
+    // - Estimator:   An algorithm (function) that trains (fits) a Transformer on a DataFrame.
+    //                I.e. a learning algorithm (e.g. DecisionTree) that trains on a DataFrame and produces a model.
+    // - Pipeline:    A directed acyclic graph (DAG) chaining multiple Transformers and Estimators together.
+    //                I.e. a ML workflow specification.
+
+    // Automatically identify categorical features, and index them.
+    // The Vectors only contain numerical values, so we need to flag which values are categorical
     val featureIndexer = new VectorIndexer()
       .setInputCol("features")
       .setOutputCol("indexedFeatures")
       .setMaxCategories(4) // features with > 4 distinct values are treated as continuous.
-      .fit(data)
-    //A VectorIndexer is a transformer which means that it transforms a data frame (in this case, a column gets added)
+      .fit(data) // a VectorIndexer is a transformer that, in this case, adds a column
 
-    // Split the data into training and test sets (30% held out for testing).
+    // Split the data into training and test sets (30% held out for testing)
     val Array(trainingData, testData) = data.randomSplit(Array(0.7, 0.3))
 
-    // Create a Decision Tree Model:
-    val dt = new DecisionTreeClassifier()
+    // Create a Decision Tree Classifier
+    val decisionTree = new DecisionTreeClassifier()
       .setLabelCol("label")
       .setFeaturesCol("indexedFeatures")
 
-    // Chain indexer and tree in a Pipeline:
+    // Chain indexer and tree in a Pipeline
     val pipeline = new Pipeline()
-      .setStages(Array( featureIndexer, dt))
+      .setStages(Array(featureIndexer, decisionTree))
 
-    // Run the entire pipeline - this first runs the indexer - which adds the column indexedFeatures, then trains the decision tree model
-    val model = pipeline.fit(trainingData) //the model is a new transformer
+    // Run the entire pipeline:
+    // 1. The featureIndexer adds the column "indexedFeatures"
+    // 2. The decisionTree trains the decision tree model
+    val model = pipeline.fit(trainingData) // produces a model, which is a new transformer
 
-    // Make predictions - these are now added to the dataframe as a new column (default name: "prediction")
+    // Print the learned decision tree model
+    val treeModel = model
+      .stages(1)
+      .asInstanceOf[DecisionTreeClassificationModel]
+    println("Learned classification tree model:\n" + treeModel.toDebugString)
+
+    // Make predictions in an additional column in the output dataframe with default name "prediction"
     val predictions = model.transform(testData)
 
-    // Select example rows to display.
-    predictions.select("prediction", "label", "features","indexedFeatures").show(5)
+    // Select example rows to display
+    predictions
+      .select("prediction", "label", "features", "indexedFeatures")
+      .show(10)
 
-    // Select (prediction, true label) and compute test error. Convenience class for calculating test errir
-    val evaluator = new MulticlassClassificationEvaluator()
+    // Evaluate the error for the predictions on the test dataset using its predicted and true labels
+    val evaluator = new MulticlassClassificationEvaluator() // a convenience class for calculating a model's accuracy
       .setLabelCol("label")
       .setPredictionCol("prediction")
       .setMetricName("accuracy")
     val accuracy = evaluator.evaluate(predictions)
-    println("Test Error = " + (1.0 - accuracy))
+    println("Test error = " + (1.0 - accuracy))
 
-    //print the tree model:
-    val treeModel = model.stages(1).asInstanceOf[DecisionTreeClassificationModel]
-    println("Learned classification tree model:\n" + treeModel.toDebugString)
+    //------------------------------------------------------------------------------------------------------------------
+    // Homework
+    //------------------------------------------------------------------------------------------------------------------
+
+    // Homework
+/*    val nation = spark.read
+      .option("inferSchema", "true")
+      .option("header", "true")
+      .csv("src/main/resources/TPCH/tpch_nation.csv")
+
+    nation.printSchema()
+
+    nation.foreach(println(_))
+
+
+    val n = spark.readStream
+      .text("src/main/resources/TPCH/tpch_nation.csv")
+
+    val words = n.as[String].flatMap(_.split(";"))
+    val urls = words.filter(_.startsWith("\""))
+    val occurrences = urls.groupBy("value").count()
+
+    occurrences.show()
+
+
+    val range = spark.createDataset((0 until 100).toList).map(number => String.valueOf(number))
+    val test = range.filter(_.startsWith("1")).groupBy("value").count()
+
+*/
+    //    val flightData = spark.readStream.option("inferSchema", "true").option("header", "true").csv("/mnt/data/*.csv")
+    //
+    //    import org.apache.spark.sql.functions.desc
+    //
+    //    val result = flightData.as[(String, String, Int)].groupBy("DESTINATION").sum("FLIGHTS").withColumnRenamed("sum(FLIGHTS)", "total").sort(desc("total")).limit(5).collect()
 
   }
 
