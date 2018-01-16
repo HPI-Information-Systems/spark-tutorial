@@ -82,7 +82,7 @@ object SimpleSpark extends App {
     val employees = spark.read
       .option("inferSchema", "true")
       .option("header", "true")
-      .csv("src/main/resources/employees.csv") // also text, json, jdbc, parquet
+      .csv("data/employees.csv") // also text, json, jdbc, parquet
       .as[(String, Int, Double, String)]
 
     // Read a Dataset from a database: (requires a database being setup as well as driver class in maven)
@@ -154,6 +154,29 @@ object SimpleSpark extends App {
     employees.printSchema() // print schema of dataset/dataframe
     topEarners.explain() // print Spark's physical query plan for this dataset/dataframe
     topEarners.show() // print the content of this dataset/dataframe
+
+    //------------------------------------------------------------------------------------------------------------------
+    // Dates and Null Values
+    //------------------------------------------------------------------------------------------------------------------
+
+    import org.apache.spark.sql.functions.{current_date, current_timestamp, lit, col, date_add}
+
+    // Create a data frame with 5 records holding a date, a timestamp, and a null column
+    val dateDF = spark.range(5)
+      .withColumn("date_today", current_date())
+      .withColumn("stamp_now", current_timestamp())
+      .withColumn("nulls", lit(null).cast("string"))
+    dateDF.show()
+
+    // Fill nulls and move date to next week
+    val filledNulls = dateDF
+      .na.fill("no_null_value", Seq("today", "now", "nulls")) // fill nulls
+      .select(
+        col("id"),
+        date_add(col("date_today"), 7).as("date_next_week"), // date next week
+        col("nulls").as("no_nulls"),
+        col("nulls").isNull.as("is_null")) // is-null-check
+    filledNulls.show()
 
     //------------------------------------------------------------------------------------------------------------------
     // Custom types
@@ -229,7 +252,7 @@ object SimpleSpark extends App {
     val data = spark
       .read
       .format("libsvm")
-      .load("src/main/resources/sample_libsvm_data.txt")
+      .load("data/sample_libsvm_data.txt")
 
     data.printSchema() // Spark reads the libsvm data into a dataframe with two columns: label and features
     data.show(10)
@@ -237,18 +260,19 @@ object SimpleSpark extends App {
     // Concepts in Spark's machine learning module:
     // - Transformer: An algorithm (function) that transforms one DataFrame into another DataFrame.
     //                I.e. an ML model that transforms a DataFrame of features into a DataFrame of predictions.
-    // - Estimator:   An algorithm (function) that trains (fits) a Transformer on a DataFrame.
+    // - Estimator:   An algorithm (function) that trains a Transformer on a DataFrame.
     //                I.e. a learning algorithm (e.g. DecisionTree) that trains on a DataFrame and produces a model.
     // - Pipeline:    A directed acyclic graph (DAG) chaining multiple Transformers and Estimators together.
     //                I.e. a ML workflow specification.
 
     // Automatically identify categorical features, and index them.
     // The Vectors only contain numerical values, so we need to flag which values are categorical
+    // A VectorIndexer is a transformer that, in this case, adds a column.
     val featureIndexer = new VectorIndexer()
       .setInputCol("features")
       .setOutputCol("indexedFeatures")
       .setMaxCategories(4) // features with > 4 distinct values are treated as continuous.
-      .fit(data) // a VectorIndexer is a transformer that, in this case, adds a column
+      .fit(data) // fit the indexer to the data (= "parameterize" and not "train")
 
     // Split the data into training and test sets (30% held out for testing)
     val Array(trainingData, testData) = data.randomSplit(Array(0.7, 0.3))
@@ -293,36 +317,8 @@ object SimpleSpark extends App {
     // Homework
     //------------------------------------------------------------------------------------------------------------------
 
-    // Homework
-/*    val nation = spark.read
-      .option("inferSchema", "true")
-      .option("header", "true")
-      .csv("src/main/resources/TPCH/tpch_nation.csv")
-
-    nation.printSchema()
-
-    nation.foreach(println(_))
 
 
-    val n = spark.readStream
-      .text("src/main/resources/TPCH/tpch_nation.csv")
-
-    val words = n.as[String].flatMap(_.split(";"))
-    val urls = words.filter(_.startsWith("\""))
-    val occurrences = urls.groupBy("value").count()
-
-    occurrences.show()
-
-
-    val range = spark.createDataset((0 until 100).toList).map(number => String.valueOf(number))
-    val test = range.filter(_.startsWith("1")).groupBy("value").count()
-
-*/
-    //    val flightData = spark.readStream.option("inferSchema", "true").option("header", "true").csv("/mnt/data/*.csv")
-    //
-    //    import org.apache.spark.sql.functions.desc
-    //
-    //    val result = flightData.as[(String, String, Int)].groupBy("DESTINATION").sum("FLIGHTS").withColumnRenamed("sum(FLIGHTS)", "total").sort(desc("total")).limit(5).collect()
 
   }
 

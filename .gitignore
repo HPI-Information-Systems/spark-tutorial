@@ -29,6 +29,7 @@ dist
 test-output
 build.log
 dependency-reduced-pom.xml
+data/TPCH
 
 # other scm
 .svn
