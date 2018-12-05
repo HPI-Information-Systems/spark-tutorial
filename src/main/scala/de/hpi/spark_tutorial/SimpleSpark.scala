@@ -1,7 +1,5 @@
 package de.hpi.spark_tutorial
 
-import java.util
-
 import org.apache.spark.sql.{Dataset, Encoder, SparkSession}
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.DecisionTreeClassificationModel
@@ -32,21 +30,20 @@ object SimpleSpark extends App {
     //------------------------------------------------------------------------------------------------------------------
 
     //spark uses user defined functions to transform data, lets first look at how functions are defined in scala:
-/*    val smallListOfNumbers = List(1, 2, 3, 4, 5)
+    val smallListOfNumbers = List(1, 2, 3, 4, 5)
 
     // A Scala map function from int to double
     def squareAndAdd(i: Int): Double = {
       i * 2 + 0.5
     }
-
     // A Scala map function defined in-line (without curly brackets)
     def squareAndAdd2(i: Int): Double = i * 2 + 0.5
-
     // A Scala map function inferring the return type
     def squareAndAdd3(i: Int) = i * 2 + 0.5
-
     // An anonymous Scala map function assigned to a variable
     val squareAndAddFunction = (i: Int) => i * 2 + 0.5
+
+    println("---------------------------------------------------------------------------------------------------------")
 
     // Different variants to apply the same function
     println(smallListOfNumbers.map(squareAndAdd))
@@ -55,7 +52,7 @@ object SimpleSpark extends App {
     println(smallListOfNumbers.map(squareAndAddFunction))
     println(smallListOfNumbers.map(i => i * 2 + 0.5)) // anonymous function; compiler can infers types
     println(smallListOfNumbers.map(_ * 2 + 0.5)) // syntactic sugar: '_' maps to first (second, third, ...) parameter
-*/
+
     //------------------------------------------------------------------------------------------------------------------
     // Setting up a Spark Session
     //------------------------------------------------------------------------------------------------------------------
@@ -73,6 +70,8 @@ object SimpleSpark extends App {
     // Importing implicit encoders for standard library classes and tuples that are used as Dataset types
     import spark.implicits._
 
+    println("---------------------------------------------------------------------------------------------------------")
+
     //------------------------------------------------------------------------------------------------------------------
     // Loading data
     //------------------------------------------------------------------------------------------------------------------
@@ -86,6 +85,8 @@ object SimpleSpark extends App {
       .option("header", "true")
       .csv("data/employees.csv") // also text, json, jdbc, parquet
       .as[(String, Int, Double, String)]
+
+    println("---------------------------------------------------------------------------------------------------------")
 
     // Read a Dataset from a database: (requires a database being setup as well as driver class in maven)
 //    val top_templates = spark.sqlContext.read.format("jdbc")
@@ -109,23 +110,32 @@ object SimpleSpark extends App {
     List(numbers, mapped, filtered, sorted).foreach(dataset => println(dataset.getClass))
     sorted.show()
 
+    println("---------------------------------------------------------------------------------------------------------")
+
     // Basic terminal operations
     val collected = filtered.collect() // collects the entire dataset to the driver process
     val reduced = filtered.reduce((s1, s2) => s1 + "," + s2) // reduces all values successively to one
     filtered.foreach(s => println(s)) // performs an action for each element (take care where the action is evaluated!)
     List(collected, reduced).foreach(result => println(result.getClass))
 
+    println("---------------------------------------------------------------------------------------------------------")
+
     // DataFrame and Dataset
     val untypedDF = numbers.toDF() // DS to DF
     val stringTypedDS = untypedDF.map(r => r.get(0).toString) // DF to DS via map
     val integerTypedDS = untypedDF.as[Int] // DF to DS via as() function that cast columns to a concrete types
-    List(untypedDF, stringTypedDS, integerTypedDS).foreach(result => println(result.getClass))
+    List(untypedDF, stringTypedDS, integerTypedDS).foreach(result => println(result.head.getClass))
+    List(untypedDF, stringTypedDS, integerTypedDS).foreach(result => println(result.head))
+
+    println("---------------------------------------------------------------------------------------------------------")
 
     // Mapping to tuples
     numbers
       .map(i => (i, "nonce", 3.1415, true))
       .take(10)
       .foreach(println(_))
+
+    println("---------------------------------------------------------------------------------------------------------")
 
     // SQL on DataFrames
     employees.createOrReplaceTempView("employee") // make this dataframe visible as a table
@@ -139,6 +149,8 @@ object SimpleSpark extends App {
       .head(10)
       .foreach(println(_))
 
+    println("---------------------------------------------------------------------------------------------------------")
+
     // Grouping and aggregation for Datasets
     val topEarners = employees
       .groupByKey { case (name, age, salary, company) => company }
@@ -148,6 +160,8 @@ object SimpleSpark extends App {
       }
       .sort(desc("_3"))
     topEarners.collect().foreach(t => println(t._1 + "'s top earner is " + t._2 + " with salary " + t._3))
+
+    println("---------------------------------------------------------------------------------------------------------")
 
     //------------------------------------------------------------------------------------------------------------------
     // Analyzing Datasets and DataFrames
@@ -161,6 +175,8 @@ object SimpleSpark extends App {
     // Dates and Null Values
     //------------------------------------------------------------------------------------------------------------------
 
+    println("---------------------------------------------------------------------------------------------------------")
+
     import org.apache.spark.sql.functions.{current_date, current_timestamp, lit, col, date_add}
 
     // Create a data frame with 5 records holding a date, a timestamp, and a null column
@@ -169,6 +185,8 @@ object SimpleSpark extends App {
       .withColumn("stamp_now", current_timestamp())
       .withColumn("nulls", lit(null).cast("string"))
     dateDF.show()
+
+    println("---------------------------------------------------------------------------------------------------------")
 
     // Fill nulls and move date to next week
     val filledNulls = dateDF
@@ -179,6 +197,8 @@ object SimpleSpark extends App {
         col("nulls").as("no_nulls"),
         col("nulls").isNull.as("is_null")) // is-null-check
     filledNulls.show()
+
+    println("---------------------------------------------------------------------------------------------------------")
 
     //------------------------------------------------------------------------------------------------------------------
     // Custom types
@@ -197,6 +217,8 @@ object SimpleSpark extends App {
       .collect()
       .foreach(println(_))
 
+    println("------------------------------------------")
+
     // (see definition above) A non-case class; requires an encoder to work as Dataset type
  //   class Pet(var name:String, var age:Int) {
  //     override def toString = s"Pet(name=$name, age=$age)"
@@ -213,6 +235,8 @@ object SimpleSpark extends App {
       .collect()
       .foreach(println(_))
 
+    println("---------------------------------------------------------------------------------------------------------")
+
     //------------------------------------------------------------------------------------------------------------------
     // Shared Variables across Executors
     //------------------------------------------------------------------------------------------------------------------
@@ -224,6 +248,8 @@ object SimpleSpark extends App {
     val filtered3 = employees.filter(e => names(1).equals(e._1)) // a copy of names is shipped to every executor again!
     List(filtered1, filtered2, filtered3).foreach(_.show(1))
 
+    println("---------------------------------------------------------------------------------------------------------")
+
     // Solution: broadcast variable
     val bcNames = spark.sparkContext.broadcast(names)
     val bcFiltered1 = employees.filter(e => bcNames.value.contains(e._1)) // a copy of names is shipped to each executor node
@@ -231,6 +257,8 @@ object SimpleSpark extends App {
     val bcFiltered3 = employees.filter(e => bcNames.value(1).equals(e._1)) // a copy of names is already present on the node
     List(bcFiltered1, bcFiltered2, bcFiltered3).foreach(_.show(1))
     bcNames.destroy() // finally, destroy the broadcast variable to free its memory on every node
+
+    println("---------------------------------------------------------------------------------------------------------")
 
     // Accumulators:
     // - shared variables that distributed executors can add to
@@ -246,6 +274,8 @@ object SimpleSpark extends App {
     println("There are " + appleAccumulator.value + " employees at Apple")
     println("There are " + microsoftAccumulator.value + " employees at Microsoft")
 
+    println("---------------------------------------------------------------------------------------------------------")
+
     //------------------------------------------------------------------------------------------------------------------
     // Machine Learning
     // https://spark.apache.org/docs/2.2.0/ml-classification-regression.html#decision-tree-classifier
@@ -258,6 +288,8 @@ object SimpleSpark extends App {
 
     data.printSchema() // Spark reads the libsvm data into a dataframe with two columns: label and features
     data.show(10)
+
+    println("---------------------------------------------------------------------------------------------------------")
 
     // Concepts in Spark's machine learning module:
     // - Transformer: An algorithm (function) that transforms one DataFrame into another DataFrame.
@@ -279,6 +311,8 @@ object SimpleSpark extends App {
     // Split the data into training and test sets (30% held out for testing)
     val Array(trainingData, testData) = data.randomSplit(Array(0.7, 0.3))
 
+    println("---------------------------------------------------------------------------------------------------------")
+
     // Create a Decision Tree Classifier
     val decisionTree = new DecisionTreeClassifier()
       .setLabelCol("label")
@@ -287,6 +321,8 @@ object SimpleSpark extends App {
     // Chain indexer and tree in a Pipeline
     val pipeline = new Pipeline()
       .setStages(Array(featureIndexer, decisionTree))
+
+    println("---------------------------------------------------------------------------------------------------------")
 
     // Run the entire pipeline:
     // 1. The featureIndexer adds the column "indexedFeatures"
@@ -302,6 +338,8 @@ object SimpleSpark extends App {
     // Make predictions in an additional column in the output dataframe with default name "prediction"
     val predictions = model.transform(testData)
 
+    println("---------------------------------------------------------------------------------------------------------")
+
     // Select example rows to display
     predictions
       .select("prediction", "label", "features", "indexedFeatures")
@@ -314,6 +352,8 @@ object SimpleSpark extends App {
       .setMetricName("accuracy")
     val accuracy = evaluator.evaluate(predictions)
     println("Test error = " + (1.0 - accuracy))
+
+    println("---------------------------------------------------------------------------------------------------------")
 
     //------------------------------------------------------------------------------------------------------------------
     // Longest Common Substring Search
