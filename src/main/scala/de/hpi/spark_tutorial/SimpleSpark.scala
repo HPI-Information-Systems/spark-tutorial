@@ -1,5 +1,7 @@
 package de.hpi.spark_tutorial
 
+import java.util
+
 import org.apache.spark.sql.{Dataset, Encoder, SparkSession}
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.DecisionTreeClassificationModel
@@ -30,7 +32,7 @@ object SimpleSpark extends App {
     //------------------------------------------------------------------------------------------------------------------
 
     //spark uses user defined functions to transform data, lets first look at how functions are defined in scala:
-    val smallListOfNumbers = List(1, 2, 3, 4, 5)
+/*    val smallListOfNumbers = List(1, 2, 3, 4, 5)
 
     // A Scala map function from int to double
     def squareAndAdd(i: Int): Double = {
@@ -53,7 +55,7 @@ object SimpleSpark extends App {
     println(smallListOfNumbers.map(squareAndAddFunction))
     println(smallListOfNumbers.map(i => i * 2 + 0.5)) // anonymous function; compiler can infers types
     println(smallListOfNumbers.map(_ * 2 + 0.5)) // syntactic sugar: '_' maps to first (second, third, ...) parameter
-
+*/
     //------------------------------------------------------------------------------------------------------------------
     // Setting up a Spark Session
     //------------------------------------------------------------------------------------------------------------------
@@ -65,8 +67,8 @@ object SimpleSpark extends App {
       .master("local[4]") // local, with 4 worker cores
     val spark = sparkBuilder.getOrCreate()
 
-    // Set the default number of shuffle partitions to 5 (default is 200, which is too high for local deployment)
-    spark.conf.set("spark.sql.shuffle.partitions", "5") //
+    // Set the default number of shuffle partitions (default is 200, which is too high for local deployment)
+    spark.conf.set("spark.sql.shuffle.partitions", "8") //
 
     // Importing implicit encoders for standard library classes and tuples that are used as Dataset types
     import spark.implicits._
@@ -215,20 +217,20 @@ object SimpleSpark extends App {
     // Shared Variables across Executors
     //------------------------------------------------------------------------------------------------------------------
 
-    // The problem: shipping large variables multiple times to executors is expensive
+    // The problem: shipping large variables (multiple times) to every executor is expensive
     val names = List("Berget", "Bianka", "Cally")
-    val filtered1 = employees.filter(e => names.contains(e._1)) // a copy of names is shipped to each executor
-    val filtered2 = employees.filter(e => !names.contains(e._1)) // a copy of names is shipped to each executor again!
-    val filtered3 = employees.filter(e => names(1).equals(e._1)) // a copy of names is shipped to each executor again!
+    val filtered1 = employees.filter(e => names.contains(e._1)) // a copy of names is shipped to every executor
+    val filtered2 = employees.filter(e => !names.contains(e._1)) // a copy of names is shipped to every executor again!
+    val filtered3 = employees.filter(e => names(1).equals(e._1)) // a copy of names is shipped to every executor again!
     List(filtered1, filtered2, filtered3).foreach(_.show(1))
 
     // Solution: broadcast variable
     val bcNames = spark.sparkContext.broadcast(names)
-    val bcFiltered1 = employees.filter(e => bcNames.value.contains(e._1)) // a copy of names is shipped to each executor
-    val bcFiltered2 = employees.filter(e => !bcNames.value.contains(e._1)) // a copy of names is already present
-    val bcFiltered3 = employees.filter(e => bcNames.value(1).equals(e._1)) // a copy of names is already present
+    val bcFiltered1 = employees.filter(e => bcNames.value.contains(e._1)) // a copy of names is shipped to each executor node
+    val bcFiltered2 = employees.filter(e => !bcNames.value.contains(e._1)) // a copy of names is already present on the node
+    val bcFiltered3 = employees.filter(e => bcNames.value(1).equals(e._1)) // a copy of names is already present on the node
     List(bcFiltered1, bcFiltered2, bcFiltered3).foreach(_.show(1))
-    bcNames.destroy() // finally, destroy the broadcast variable to release it from memory in each executor
+    bcNames.destroy() // finally, destroy the broadcast variable to free its memory on every node
 
     // Accumulators:
     // - shared variables that distributed executors can add to
@@ -314,12 +316,88 @@ object SimpleSpark extends App {
     println("Test error = " + (1.0 - accuracy))
 
     //------------------------------------------------------------------------------------------------------------------
-    // Homework
+    // Longest Common Substring Search
     //------------------------------------------------------------------------------------------------------------------
 
+    def time[R](block: => R): R = {
+      val t0 = System.currentTimeMillis()
+      val result = block
+      val t1 = System.currentTimeMillis()
+      println(s"Execution: ${t1 - t0} ms")
+      result
+    }
 
+    def longestCommonSubstring(str1: String, str2: String): String = {
+      if (str1.isEmpty || str2.isEmpty)
+        return ""
 
+      var currentRow = new Array[Int](str1.length)
+      var lastRow = if (str2.length > 1) new Array[Int](str1.length) else null
+      var longestSubstringLength = 0
+      var longestSubstringStart = 0
 
+      var str2Index = 0
+      while (str2Index < str2.length) {
+        val str2Char = str2.charAt(str2Index)
+        var str1Index = 0
+        while (str1Index < str1.length) {
+          var newLength = 0
+          if (str1.charAt(str1Index) == str2Char) {
+            newLength = if (str1Index == 0 || str2Index == 0) 1
+            else lastRow(str1Index - 1) + 1
+            if (newLength > longestSubstringLength) {
+              longestSubstringLength = newLength
+              longestSubstringStart = str1Index - (newLength - 1)
+            }
+          }
+          else newLength = 0
+          currentRow(str1Index) = newLength
+
+          str1Index += 1
+          str1Index - 1
+        }
+        val temp = currentRow
+        currentRow = lastRow
+        lastRow = temp
+
+        str2Index += 1
+        str2Index - 1
+      }
+      return str1.substring(longestSubstringStart, longestSubstringStart + longestSubstringLength)
+    }
+
+    val students = spark
+      .read
+      .option("inferSchema", "false")
+      .option("header", "false")
+      .option("quote", "\"")
+      .option("delimiter", ",")
+      .csv(s"data/students.csv")
+      .toDF("ID", "Name", "Password", "Gene")
+      .as[(String, String, String, String)]
+
+    time {
+      val result = students
+        .repartition(32)
+        //.joinWith(students, students1.col("ID") =!= students2.col("ID"))
+        .crossJoin(students).filter(r => !r.getString(0).equals(r.getString(4)))
+        .as[(String, String, String, String, String, String, String, String)]
+        .map(t => (t._1, longestCommonSubstring(t._4, t._8)))
+        .groupByKey(t => t._1)
+        .mapGroups{ (key, iterator) => (key, iterator
+          .map(t => t._2)
+          .reduce((a,b) => { if (a.length > b.length) a else b })) }
+        .toDF("ID", "Substring")
+        .show(200)
+    }
+
+    //------------------------------------------------------------------------------------------------------------------
+    // Inclusion Dependency Discovery (Homework)
+    //------------------------------------------------------------------------------------------------------------------
+
+    val inputs = List("region", "nation", "supplier", "customer", "part", "lineitem", "orders")
+      .map(name => s"data/TPCH/tpch_$name.csv")
+
+    //time {Sindy.discoverINDs(inputs, spark)}
   }
-
 }
