@@ -30,7 +30,6 @@ test-output
 build.log
 dependency-reduced-pom.xml
 data/TPCH
-data/students.csv
 
 # other scm
 .svn
