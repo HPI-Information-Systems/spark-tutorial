@@ -216,7 +216,12 @@ function submit() {
     # execute submission
     master_ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' ${master_name})
     # docker run --rm -it -v $(pwd):/work actionml/spark /work/submit_entrypoint.sh --master spark://172.17.0.2:7077 --deploy-mode client --class de.hpi.spark_tutorial.SimpleSpark$ SparkTutorial-1.0.jar
-    docker run --rm -it -v $(pwd):/tmp/work:ro actionml/spark /tmp/work/submit_entrypoint.sh --master spark://${master_ip}:7077 --deploy-mode cluster "${@:2}"
+    docker run  --rm -it \
+                -v $(pwd):/work:ro \
+           actionml/spark /work/submit_entrypoint.sh \
+                --master spark://${master_ip}:6066 \
+                --deploy-mode client \
+                "${@:2}"
 
     # reset getopts counter
     OPTIND=${old_optind}
