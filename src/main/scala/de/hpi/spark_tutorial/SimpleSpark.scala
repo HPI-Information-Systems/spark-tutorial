@@ -190,7 +190,7 @@ object SimpleSpark extends App {
 
     // Fill nulls and move date to next week
     val filledNulls = dateDF
-      .na.fill("no_null_value", Seq("today", "now", "nulls")) // fill nulls
+      .na.fill("no_null_value", Seq("date_today", "stamp_now", "nulls")) // fill nulls
       .select(
         col("id"),
         date_add(col("date_today"), 7).as("date_next_week"), // date next week
