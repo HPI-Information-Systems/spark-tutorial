@@ -134,6 +134,7 @@ function start() {
                --hostname "${master_name}" \
                --network "${network_name}" \
                -p ${p}:8080 \
+               -v $(pwd):/work:ro \
                -v $(pwd)/spark/spark-env.sh:/spark/conf/spark-env.sh \
                -e SPARK_PUBLIC_DNS="localhost" \
                -e SPARK_HOSTNAME="${master_name}" \
@@ -149,6 +150,7 @@ function start() {
                    --hostname "${worker}" \
                    --network "${network_name}" \
                    -p ${port}:${port} \
+                   -v $(pwd):/work:ro \
                    -v $(pwd)/spark/spark-env.sh:/spark/conf/spark-env.sh \
                    -e SPARK_PUBLIC_DNS="localhost" \
                    -e SPARK_HOSTNAME="${worker}" \
@@ -239,6 +241,7 @@ function shell() {
     docker run --rm -it --name "spark-shell" \
                --network "${network_name}" \
                --hostname "spark-shell" \
+               -v $(pwd):/work:ro \
                -p ${p}:4040 \
                -e SPARK_PUBLIC_DNS="localhost" \
                actionml/spark shell --master spark://${master_name}:7077 --conf "spark.driver.cores=1" --conf "spark.driver.memory=1g"
@@ -266,14 +269,16 @@ function submit() {
     fi
 
     # execute submission
-    master_ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' ${master_name})
-    # docker run --rm -it -v $(pwd):/work actionml/spark /work/submit_entrypoint.sh --master spark://172.17.0.2:7077 --deploy-mode client --class de.hpi.spark_tutorial.SimpleSpark$ SparkTutorial-1.0.jar
-    docker run  --rm -it \
+    docker run  --rm -it --name "spark-submitter" \
+                --network "${network_name}" \
+                --hostname "spark-submitter" \
                 -v $(pwd):/work:ro \
-           actionml/spark /work/submit_entrypoint.sh \
-                --master spark://${master_ip}:6066 \
-                --deploy-mode client \
-                "${@:2}"
+                -p ${default_app_port}:4040 \
+                -e SPARK_PUBLIC_DNS="localhost" \
+                actionml/spark /work/submit_entrypoint.sh \
+                    --master spark://${master_name}:7077 \
+                    --deploy-mode client \
+                    "${@:2}"
 
     # reset getopts counter
     OPTIND=${old_optind}
