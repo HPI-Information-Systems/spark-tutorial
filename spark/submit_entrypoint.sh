@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# submit_entrypoint.sh
+# Script used in the docker container for submitting the Spark jobs to the cluster.
+# This is part of `spark-cluster.sh`.
+#
+# Author: Sebastian Schmidl <info at sebastianschmidl dot de>
+
 set -e
 
 # read configuration and prepare volumes
