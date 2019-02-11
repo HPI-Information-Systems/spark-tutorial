@@ -8,6 +8,18 @@
 #
 # Author: Sebastian Schmidl <info at sebastianschmidl dot de>
 
+
+# constants
+namefile=".workernames"
+master_name="spark-master"
+worker_name="spark-worker"
+network_name="spark-cluster-network"
+default_n=2
+default_webui_port=8080
+default_app_port=4040
+
+# help functions
+
 # prints the help information using `cat` and a HEREDOC
 function printHelp() {
 cat <<HELP
@@ -49,8 +61,9 @@ Usage: $0 start -n N -p PORT
 
 Options:
     -h      Prints this help page
-    -n N    Number of worker nodes to start, defaults to 2
-    -p PORT Spark WebUI port on the host system, defaults to 8080
+    -n N    Number of worker nodes to start, defaults to ${default_n}
+    -p PORT Start of port range for Spark WebUI ports on the host system.
+            Will allocate to ports PORT to (PORT + N), PORT defaults to ${default_webui_port}.
 
 Example:
 > $0 start
@@ -64,6 +77,8 @@ Usage: $0 shell
 
 Options:
     -h      Prints this help page
+    -p PORT Port of the Spark application WebUI on the host system.
+            PORT defaults to ${default_app_port}
 
 Example:
 > $0 shell
@@ -82,13 +97,6 @@ Example:
 > $0 submit --class my.package.MainClass sum.jar 5 100
 SUBMITHELP
 }
-
-# constants
-namefile=".workernames"
-master_name="spark-master"
-worker_name="spark-worker"
-default_n=2
-default_webui_port=8080
 
 function start() {
     # set getopts counter
@@ -109,17 +117,46 @@ function start() {
     # reset getopts counter
     OPTIND=${old_optind}
 
+    if [[ "$2" != "" ]]; then
+        echo "Unknown argument $2" >&2
+        printStartHelp
+        exit 1
+    fi
+
+    # Setup user-defined bridge network for service discovery
+    network_exists=$(docker network inspect ${network_name} 1>/dev/null 2>&1)
+    if [[ ${network_exists} != 0 ]]; then
+        docker network create --driver bridge "${network_name}" >/dev/null
+        echo "Docker network ${network_name} created"
+    fi
+
     # Spawn master
-    docker run --rm -d --name ${master_name} -p ${p}:8080 actionml/spark master >/dev/null
+    docker run --rm -d --name ${master_name} \
+               -p ${p}:8080 \
+               --hostname ${master_name} --network "${network_name}" \
+               -e SPARK_PUBLIC_DNS="localhost" \
+               -e SPARK_HOSTNAME="${master_name}" \
+               -v $(pwd)/spark/spark-env.sh:/spark/conf/spark-env.sh \
+               actionml/spark master >/dev/null
     echo "${master_name} started"
-    master_ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' ${master_name})
+    #master_ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' ${master_name})
 
     # Spawn workers
     counter=0
     while [[ ${counter} -lt ${n} ]]; do
-        echo "${worker_name}${counter}" >> ${namefile}
-        docker run --rm -d --name "${worker_name}${counter}" actionml/spark worker spark://${master_ip}:7077 >/dev/null
-        echo "${worker_name}${counter} started"
+        worker="${worker_name}${counter}"
+        port=$((p + 1 + counter))
+        docker run --rm -d --name "${worker}" \
+                   -p ${port}:${port} \
+                   --hostname "${worker}" --network "${network_name}" \
+                   -v $(pwd)/spark/spark-env.sh:/spark/conf/spark-env.sh \
+                   -e SPARK_PUBLIC_DNS="localhost" \
+                   -e SPARK_HOSTNAME="${worker}" \
+                   actionml/spark worker spark://${master_name}:7077 --webui-port ${port} >/dev/null
+        if [[ $? == 0 ]]; then
+            echo "${worker}" >> ${namefile}
+            echo "${worker} started"
+        fi
         let counter=counter+1
     done
 }
@@ -140,23 +177,29 @@ function stop() {
     OPTIND=${old_optind}
 
     if [[ "$2" != "" ]]; then
+        echo "Unknown argument $2" >&2
         printStopHelp
         exit 1
     fi
 
     # test if there are containers running using the namefile
-    if ! [[ -e ${namefile} ]]; then
+    if [[ -e ${namefile} ]]; then
+        echo "stopping master"
+        docker stop ${master_name} 1>/dev/null 2>&1
+        for worker in $( cat ${namefile} ); do
+            echo "stopping ${worker}"
+            docker stop ${worker} 1>/dev/null 2>&1
+        done
+        rm ${namefile}
+    else
         echo "No spark container running"
-        exit 0
     fi
 
-    echo "stopping master"
-    docker stop ${master_name} 1>/dev/null 2>&1
-    for worker in $( cat ${namefile} ); do
-        echo "stopping ${worker}"
-        docker stop ${worker} 1>/dev/null 2>&1
-    done
-    rm ${namefile}
+    docker network inspect ${network_name} 1>/dev/null 2>&1
+    if [[ $? == 0 ]]; then
+        echo "Removing network"
+        docker network rm "${network_name}"
+    fi
 }
 
 function shell() {
@@ -164,8 +207,10 @@ function shell() {
     old_optind=$OPTIND
     OPTIND=2
 
+    p=${default_app_port}
     while getopts "h" option; do
       case "${option}" in
+        p) p=${OPTARG} ;;
         h|\?) printShellHelp
             exit 1 ;;
       esac
@@ -176,6 +221,7 @@ function shell() {
 
 
     if [[ "$2" != "" ]]; then
+        echo "Unknown argument $2" >&2
         printShellHelp
         exit 1
     fi
@@ -188,8 +234,12 @@ function shell() {
     fi
 
     # Spawn shell
-    master_ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' ${master_name})
-    docker run --rm -it actionml/spark shell --master spark://${master_ip}:7077
+    #master_ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' ${master_name})
+    docker run --rm -it --name "spark-shell" \
+               -p ${p}:4040 \
+               --hostname "spark-shell" --network "${network_name}" \
+               -e SPARK_PUBLIC_DNS="localhost" \
+               actionml/spark shell --master spark://${master_name}:7077 --conf "spark.executor.memory=1g" --conf "spark.driver.cores=1" --conf "spark.driver.memory=1g"
 }
 
 function submit() {
