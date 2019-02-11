@@ -22,8 +22,11 @@ default_app_port=4040
 # print the help information using `cat` and a HEREDOC
 function printHelp() {
 cat <<HELP
-This script eases handling of the spark cluster using docker.
-The docker images are from https://github.com/actionml/docker-spark.
+This script eases handling of the spark cluster using docker. Please use this script only
+from the project's root directory; It will be mounted into the master and worker docker
+containers to let them access your jar and data files. The docker images are from
+https://github.com/actionml/docker-spark.
+
 Usage: $0 COMMAND [command options]
 
 Commands:
@@ -86,7 +89,8 @@ SHELLHELP
 
 function printSubmitHelp() {
 cat <<SUBMITHELP
-Submits a jar-file as a spark job to the spark cluster for processing.
+Submits a jar-file as a spark job to the spark cluster for processing. All paths are relative
+to the current directory as this directory will be made available to the cluster.
 Usage: $0 submit [OPTIONS] JAR [JAR_ARGS]
 
 Options:
@@ -275,7 +279,7 @@ function submit() {
                 -v $(pwd):/work:ro \
                 -p ${default_app_port}:4040 \
                 -e SPARK_PUBLIC_DNS="localhost" \
-                actionml/spark /work/submit_entrypoint.sh \
+                actionml/spark /work/spark/submit_entrypoint.sh \
                     --master spark://${master_name}:7077 \
                     --deploy-mode client \
                     "${@:2}"
