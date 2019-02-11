@@ -132,11 +132,12 @@ function start() {
 
     # Spawn master
     docker run --rm -d --name ${master_name} \
+               --hostname ${master_name} \
+               --network "${network_name}" \
                -p ${p}:8080 \
-               --hostname ${master_name} --network "${network_name}" \
+               -v $(pwd)/spark/spark-env.sh:/spark/conf/spark-env.sh \
                -e SPARK_PUBLIC_DNS="localhost" \
                -e SPARK_HOSTNAME="${master_name}" \
-               -v $(pwd)/spark/spark-env.sh:/spark/conf/spark-env.sh \
                actionml/spark master >/dev/null
     echo "${master_name} started"
     #master_ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' ${master_name})
@@ -147,8 +148,9 @@ function start() {
         worker="${worker_name}${counter}"
         port=$((p + 1 + counter))
         docker run --rm -d --name "${worker}" \
+                   --hostname "${worker}" \
+                   --network "${network_name}" \
                    -p ${port}:${port} \
-                   --hostname "${worker}" --network "${network_name}" \
                    -v $(pwd)/spark/spark-env.sh:/spark/conf/spark-env.sh \
                    -e SPARK_PUBLIC_DNS="localhost" \
                    -e SPARK_HOSTNAME="${worker}" \
@@ -234,12 +236,12 @@ function shell() {
     fi
 
     # Spawn shell
-    #master_ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' ${master_name})
     docker run --rm -it --name "spark-shell" \
+               --network "${network_name}" \
+               --hostname "spark-shell" \
                -p ${p}:4040 \
-               --hostname "spark-shell" --network "${network_name}" \
                -e SPARK_PUBLIC_DNS="localhost" \
-               actionml/spark shell --master spark://${master_name}:7077 --conf "spark.executor.memory=1g" --conf "spark.driver.cores=1" --conf "spark.driver.memory=1g"
+               actionml/spark shell --master spark://${master_name}:7077 --conf "spark.driver.cores=1" --conf "spark.driver.memory=1g"
 }
 
 function submit() {
