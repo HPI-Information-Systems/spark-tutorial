@@ -19,8 +19,7 @@ default_webui_port=8080
 default_app_port=4040
 
 # help functions
-
-# prints the help information using `cat` and a HEREDOC
+# print the help information using `cat` and a HEREDOC
 function printHelp() {
 cat <<HELP
 This script eases handling of the spark cluster using docker.
@@ -131,8 +130,8 @@ function start() {
     fi
 
     # Spawn master
-    docker run --rm -d --name ${master_name} \
-               --hostname ${master_name} \
+    docker run --rm -d --name "${master_name}" \
+               --hostname "${master_name}" \
                --network "${network_name}" \
                -p ${p}:8080 \
                -v $(pwd)/spark/spark-env.sh:/spark/conf/spark-env.sh \
@@ -140,7 +139,6 @@ function start() {
                -e SPARK_HOSTNAME="${master_name}" \
                actionml/spark master >/dev/null
     echo "${master_name} started"
-    #master_ip=$(docker inspect --format '{{ .NetworkSettings.IPAddress }}' ${master_name})
 
     # Spawn workers
     counter=0
@@ -161,6 +159,8 @@ function start() {
         fi
         let counter=counter+1
     done
+
+    echo "Web UI of the Spark master is available under: http://localhost:${p}"
 }
 
 function stop() {
