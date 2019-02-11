@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-
 # spark-cluster.sh
 # CLI wrapper script to use a spark cluster based on docker images.
 # The docker images are build from https://github.com/actionml/docker-spark
@@ -10,6 +9,7 @@
 
 
 # constants
+image_version="2.3.2"
 namefile=".workernames"
 master_name="spark-master"
 worker_name="spark-worker"
@@ -101,6 +101,7 @@ Example:
 SUBMITHELP
 }
 
+# commands
 function start() {
     # set getopts counter
     old_optind=$OPTIND
@@ -127,10 +128,17 @@ function start() {
     fi
 
     # Setup user-defined bridge network for service discovery
-    network_exists=$(docker network inspect ${network_name} 1>/dev/null 2>&1)
-    if [[ ${network_exists} != 0 ]]; then
+    docker network inspect ${network_name} 1>/dev/null 2>&1
+    if [[ $? != 0 ]]; then
         docker network create --driver bridge "${network_name}" >/dev/null
         echo "Docker network ${network_name} created"
+    fi
+
+    # test if master is running
+    is_running=$(docker inspect -f "{{.State.Running}}" ${master_name} 2>/dev/null)
+    if [[ "${is_running}" = true ]]; then
+        echo "The cluster is already running."
+        exit 0
     fi
 
     # Spawn master
@@ -142,7 +150,7 @@ function start() {
                -v $(pwd)/spark/spark-env.sh:/spark/conf/spark-env.sh \
                -e SPARK_PUBLIC_DNS="localhost" \
                -e SPARK_HOSTNAME="${master_name}" \
-               actionml/spark master >/dev/null
+               actionml/spark:${image_version} master >/dev/null 2>&1
     echo "${master_name} started"
 
     # Spawn workers
@@ -158,7 +166,7 @@ function start() {
                    -v $(pwd)/spark/spark-env.sh:/spark/conf/spark-env.sh \
                    -e SPARK_PUBLIC_DNS="localhost" \
                    -e SPARK_HOSTNAME="${worker}" \
-                   actionml/spark worker spark://${master_name}:7077 --webui-port ${port} >/dev/null
+                   actionml/spark:${image_version} worker spark://${master_name}:7077 --webui-port ${port} >/dev/null
         if [[ $? == 0 ]]; then
             echo "${worker}" >> ${namefile}
             echo "${worker} started"
@@ -248,7 +256,7 @@ function shell() {
                -v $(pwd):/work:ro \
                -p ${p}:4040 \
                -e SPARK_PUBLIC_DNS="localhost" \
-               actionml/spark shell --master spark://${master_name}:7077 --conf "spark.driver.cores=1" --conf "spark.driver.memory=1g"
+               actionml/spark:${image_version} shell --master spark://${master_name}:7077 --conf "spark.driver.cores=1" --conf "spark.driver.memory=1g"
 }
 
 function submit() {
@@ -262,7 +270,7 @@ function submit() {
         exit 1
     elif [[ "$2" = "-h" ]]; then
         printSubmitHelp
-        exit 1
+        exit 0
     fi
 
     # test if master is running
@@ -279,7 +287,7 @@ function submit() {
                 -v $(pwd):/work:ro \
                 -p ${default_app_port}:4040 \
                 -e SPARK_PUBLIC_DNS="localhost" \
-                actionml/spark /work/spark/submit_entrypoint.sh \
+                actionml/spark:${image_version} /work/spark/submit_entrypoint.sh \
                     --master spark://${master_name}:7077 \
                     --deploy-mode client \
                     "${@:2}"
