@@ -1,11 +1,17 @@
 package de.hpi.getting_started
 
+import java.time.LocalDateTime
+
 object ScalaIntroduction extends App {
 
+  /////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////BASICS//////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////////
   //Immutable and mutable Variables
   val a:String = "hello" //immutable variable
   var b:Int = 3 //mutable variable
   b = 4
+  //By the way: there are no more primitives, everything is an object, also Int, Double, ... (at least on the surface)
   //type inference by the compiler
   val c = 1
   val d = 1.5
@@ -13,7 +19,34 @@ object ScalaIntroduction extends App {
   val list = List(1,2,3)
   val list2 = List(1,2,3.4)
   val list3 = List(1,2,"a") //defaults to Any (similar to java Object)
+  //if statements like in java:
+  if(b==3){
+    println("yes")
+  } else {
+    println("no")
+  }
 
+  /////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////LOOPS////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////////////
+  //standard for loops:
+  for( i <- 0 until list.size){
+    println(list(i))
+  }
+  //The scala-way: standard loop as function on the list:
+  list.foreach(elem => {
+    println(elem)
+  })
+  //while-loops also exist - but they are rarely needed
+  var i=0
+  while(i<list.size){
+    println(list(i))
+    i+=1
+  }
+
+  ///////////////////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////FUNCTIONS AND METHODS///////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////
   //functions/methods
   def addTwo(i:Int) = {
     val result = i+2
@@ -34,10 +67,13 @@ object ScalaIntroduction extends App {
   val myStringReverseFunction = (string:String) => string.reverse
   println(myStringReverseFunction(a))
 
-  //access to java standard library:
+  //access to java standard library via the java package:
   val file = new java.io.File("path")
 
-  //collections - immutable
+  //////////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////COLLECTIONS//////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////////////
+  //immutable collections
   val myList = Seq(1,2,3)
   //myList(0) = 1 - does not work
   //the only way to change immutable collections is through transformations (which create new collections):
@@ -56,7 +92,7 @@ object ScalaIntroduction extends App {
   println(productVariant1)
   println(productVariant2)
 
-  //there are also mutable collections:
+  //mutable collections
   val mutableSequence = scala.collection.mutable.Seq(1,2,3)
   mutableSequence(0) = 4 //this is allowed now
   println(mutableSequence)
@@ -79,21 +115,9 @@ object ScalaIntroduction extends App {
   val asMap = arrayList
     .groupBy(i => i%2 == 0)
 
-  //standard loops:
-  for( i <- 0 until arrayList.size){
-    println(arrayList(i))
-  }
-  //The scala-way: standard loop as function on the list:
-  arrayList.foreach(elem => {
-    println(elem)
-  })
-  //while-loops also exist - but it is rare to use them
-  var i=0
-  while(i<arrayList.size){
-    println(arrayList(i))
-    i+=1
-  }
-
+  /////////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////TUPLES////////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////////////
   //scala has built-In tuple classes to group variables that belong together:
   val myTuple = ("first","second",3)
   println(myTuple._1)
@@ -109,5 +133,41 @@ object ScalaIntroduction extends App {
     println(key)
     println(value)
   })
+  //we can also directly extract tuple variables using the case-keyword:
+  myMap.foreach{ case (k,v) => println(s"key:$k: value:$v")}
 
+  /////////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////CLASSES////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////////////
+  //you can think of case-classes as named tuples. Typically implemented as immutable objects (but don't have to be)
+  //case classes automatically implement the equals method based on the fields that are passed to their constructors
+  class Pet(val name:String,            //immutable public field
+            var owner:String,           //mutable public field
+            private val petID:Int,      //immutable private field
+            creationTime:LocalDateTime  //not a field at all but can still be used in the class (behaves like a private field in may cases, but there are differences, for example in serialization)
+           ){
+    //there is no explicit constructor, instead, we can write constructor code here
+    println(s"Constructor of Pet just got called at $creationTime")
+
+    //class method (everything is public by default)
+    //a pretty good explanation why making everything public by default is much less bad in scala as opposed to for example java: https://www.scala-lang.org/old/node/6468
+    def talk() = {
+      println("Are Horses supposed to talk?")
+    }
+
+  }
+  val myPet = new Pet("Jolly Jumper","Lucky Luke",0,LocalDateTime.now())
+
+  /////////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////////////CASE CLASSES////////////////////////////////////
+  /////////////////////////////////////////////////////////////////////////////////////
+  //you can think of case-classes as named tuples. Typically implemented as immutable objects (but don't have to be)
+  //case classes automatically implement the equals method based on the fields that are passed to their constructors
+  //Case classes are often used for data-classes
+  case class Exercise(number:Int,part:Char,description:String,solution:Option[String]){
+    //you can define methods and additional members here, just like for normal classes
+  }
+  val exercise1 = Exercise(1,'a',"Write any scala Program that compiles",None) //does not require new-keyword
+  val exercise1_identical = Exercise(1,'a',"Write any scala Program that compiles",None)
+  println(exercise1==exercise1_identical)
 }
