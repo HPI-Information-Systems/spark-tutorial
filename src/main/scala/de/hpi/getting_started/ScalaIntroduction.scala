@@ -16,9 +16,10 @@ object ScalaIntroduction extends App {
   val c = 1
   val d = 1.5
   val e = c + d // still works
-  val list = List(1,2,3)
+  val listWithTypeParam:List[Int] = List[Int](1,2,3) //type parameters in square braces
+  val list = List(1,2,3) //type inference also works here
   val list2 = List(1,2,3.4)
-  val list3 = List(1,2,"a") //defaults to Any (similar to java Object)
+  val list3 = List(1,2,"a") //type defaults to Any (similar to java Object)
   //if statements like in java:
   if(b==3){
     println("yes")

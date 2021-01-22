@@ -16,12 +16,12 @@ class ResultChecker(spark:SparkSession) {
     checkForEquality(1,res1, expected)
   }
 
-  def checkExercise2Result(res2: Array[(String, Int)], path: String) = {
+  def checkExercise2Result(res2: Map[String, Int], path: String) = {
     val expected = IOHelper.readSparkCSV(spark,path,false)
       .as[(String,Int)]
       .collect()
       .sorted
-    checkForEquality(2,res2.sorted,expected)
+    checkForEquality(2,res2.toIndexedSeq.sorted,expected)
   }
 
   def checkExercise3Result(res1:  Map[(String, String, Int, Timestamp), Seq[String]], path: String) = {
