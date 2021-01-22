@@ -16,37 +16,9 @@ object SparkIntroduction extends App {
 
   override def main(args: Array[String]): Unit = {
 
-    // Turn off logging
+    // Turn off logging as this clutters up the prints that we will do
     Logger.getLogger("org").setLevel(Level.OFF)
     Logger.getLogger("akka").setLevel(Level.OFF)
-
-    //------------------------------------------------------------------------------------------------------------------
-    // Lambda basics (for Scala)
-    //------------------------------------------------------------------------------------------------------------------
-
-    //spark uses user defined functions to transform data, lets first look at how functions are defined in scala:
-    val smallListOfNumbers = List(1, 2, 3, 4, 5)
-
-    // A Scala map function from int to double
-    def squareAndAdd(i: Int): Double = {
-      i * i + 0.5
-    }
-    // A Scala map function defined in-line (without curly brackets)
-    def squareAndAdd2(i: Int): Double = i * i + 0.5
-    // A Scala map function inferring the return type
-    def squareAndAdd3(i: Int) = i * i + 0.5
-    // An anonymous Scala map function assigned to a variable
-    val squareAndAddFunction = (i: Int) => i * i + 0.5
-
-    println("---------------------------------------------------------------------------------------------------------")
-
-    // Different variants to apply the same function
-    println(smallListOfNumbers.map(squareAndAdd))
-    println(smallListOfNumbers.map(squareAndAdd2))
-    println(smallListOfNumbers.map(squareAndAdd3))
-    println(smallListOfNumbers.map(squareAndAddFunction))
-    println(smallListOfNumbers.map(i => i * 2 + 0.5)) // anonymous function; compiler can infers types
-    println(smallListOfNumbers.map(_ * 2 + 0.5)) // syntactic sugar: '_' maps to first (second, third, ...) parameter
 
     //------------------------------------------------------------------------------------------------------------------
     // Setting up a Spark Session
@@ -56,7 +28,7 @@ object SparkIntroduction extends App {
     val sparkBuilder = SparkSession
       .builder()
       .appName("SparkTutorial")
-      .master("local[4]") // local, with 4 worker cores
+      .master("local[4]") // local, with 4 worker cores, this is all we need for our exercise
     val spark = sparkBuilder.getOrCreate()
 
     // Set the default number of shuffle partitions (default is 200, which is too high for local deployment)
@@ -84,7 +56,7 @@ object SparkIntroduction extends App {
     val mapped = numbers.map(i => "This is a number: " + i)
     val filtered = mapped.filter(s => s.contains("1"))
     val sorted = filtered.sort()
-    List(numbers, mapped, filtered, sorted).foreach(dataset => println(dataset.show(5)))
+    List(numbers, mapped, filtered, sorted).foreach(dataset => dataset.show(5))
 
     println("---------------------------------------------------------------------------------------------------------")
 
@@ -97,7 +69,7 @@ object SparkIntroduction extends App {
     println("---------------------------------------------------------------------------------------------------------")
 
     // DataFrame and Dataset
-    val untypedDF = numbers.toDF() // converts typed dataset to untyped dataframe
+    val untypedDF = numbers.toDF() // converts typed dataset to untyped dataframe (like sql-tables)
     val stringTypedDS = untypedDF.map(r => r.get(0).toString) // map function on a dataframe returns a typed dataset
     val integerTypedDS = untypedDF.as[Int] // casts dataframe to a dataset of a concrete types
     List(untypedDF, stringTypedDS, integerTypedDS).foreach(result => println(result.head.getClass))
@@ -109,7 +81,7 @@ object SparkIntroduction extends App {
     val multiColumnDataset = numbers
       .map(i => (i, "nonce", 3.1415, true))
     multiColumnDataset
-      .take(10) //take copies the contents to the driver process
+      .take(10) //take() copies the contents to the driver process
       .foreach(println(_))
 
     println("---------------------------------------------------------------------------------------------------------")
