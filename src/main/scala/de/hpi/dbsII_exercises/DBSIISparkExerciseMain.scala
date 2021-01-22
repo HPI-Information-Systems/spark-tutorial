@@ -6,7 +6,7 @@ object DBSIISparkExerciseMain extends App{
 
   val pathToData = args(0)
   val numCores = args(1).toInt
-  val numShufflePartitions = args(2).toInt
+  val numShufflePartitions = 8
 
   val sparkBuilder = SparkSession
     .builder()
