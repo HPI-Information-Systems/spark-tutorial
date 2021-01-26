@@ -46,7 +46,11 @@ class ResultChecker(spark:SparkSession) {
     val resultSorted = res4
       .toList
       .sortBy{case (timestamps,vals) => timestamps}(timestampListOrdering)
-    checkForEquality(4,resultSorted, expected)
+    if (resultSorted == expected || resultSorted == expected.filter(_._1.size>0)) {
+      println(s"Exercise 4 result was correct")
+    } else {
+      println(s"Exercise 4 result was incorrect")
+    }
   }
 
   private def checkForEquality(exerciseNumber:Int, result: Seq[Any], expected: Seq[Any]) = {
