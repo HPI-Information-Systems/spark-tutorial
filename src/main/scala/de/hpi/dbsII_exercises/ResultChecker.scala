@@ -42,9 +42,11 @@ class ResultChecker(spark:SparkSession) {
       .as[(Seq[Timestamp], Seq[(String, String)])]
       .collect()
       .toList
+      .map{case (timestamps,vals) => (timestamps,vals.sorted)} //sort attribute List
       .sortBy{case (timestamps,vals) => timestamps}(timestampListOrdering)
     val resultSorted = res4
       .toList
+      .map{case (timestamps,vals) => (timestamps,vals.sorted)} //sort attribute List
       .sortBy{case (timestamps,vals) => timestamps}(timestampListOrdering)
     if (resultSorted == expected || resultSorted == expected.filter(_._1.size>0)) {
       println(s"Exercise 4 result was correct")

@@ -18,6 +18,7 @@ object ScalaIntroduction extends App {
   val e = c + d // still works
   val listWithTypeParam:List[Int] = List[Int](1,2,3) //type parameters in square braces
   val list = List(1,2,3) //type inference also works here
+  println(list(0))
   val list2 = List(1,2,3.4)
   val list3 = List(1,2,"a") //type defaults to Any (similar to java Object)
   //if statements like in java:
@@ -46,17 +47,17 @@ object ScalaIntroduction extends App {
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////
-  ///////////////////////////////FUNCTIONS AND METHODS///////////////////////////////////
+  ///////////////////////////////FUNCTIONS AND METHODS/Procedures///////////////////////////////////
   ///////////////////////////////////////////////////////////////////////////////////////
   //functions/methods
   def addTwo(i:Int) = {
     val result = i+2
     result //no return statement necessary: the result of the last expression will be returned
   }
-  def printHello = { // functions/method without parameters don't need parentheses
+  def printHello() = { // functions/method without parameters don't need parentheses
     println("Hello World")
   }
-  printHello
+  printHello()
   //printHello() - trying to call them with parentheses if they are defined without actually does not compile
   //CONVENTION: If a parameterless method has side-effects (such as printing or updating states) it is defined with parentheses
   //if it just returns stored or computed values (such as the size of a list), it is defined without parentheses
