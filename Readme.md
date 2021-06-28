@@ -1,6 +1,6 @@
-This is a basic scala project that includes spark dependencies and necessary build-configuration to build a jar that can be submitted to a spark installation via spark-submit.
+# Setup instructions
 
-# Detailed setup instructions
+This is a basic scala project that includes spark dependencies and necessary build-configuration to build a jar that can be submitted to a spark installation via spark-submit.
 
 ## Checkout the project
 **git clone git@github.com:HPI-Information-Systems/spark-tutorial.git**
