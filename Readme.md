@@ -5,7 +5,8 @@ This is a basic scala project that includes spark dependencies and necessary bui
 ## Checkout the project:
 **git clone git@github.com:HPI-Information-Systems/spark-tutorial.git**
 
-## Install IntelliJ with the Scala and sbt plugins
+## Install IntelliJ
+- Select the Scala and sbt plugins to be installed during the installation; otherwise you need to install them later
 
 ## Import the project into IntelliJ:
 - Start Intellij
@@ -25,7 +26,7 @@ This is a basic scala project that includes spark dependencies and necessary bui
 - Remove the Tutorial and LongestCommonSubstring calls
 - Implement the Sindy algorithm
 
-# Build your final jar file:
+## Build your final jar file:
 - Click **Run**->**Edit Configurations**->**+**->**SBT Task** 
 - Enter a name, such as **SparkTutorial assembly**
 - Enter task **clean assembly**
@@ -33,5 +34,5 @@ This is a basic scala project that includes spark dependencies and necessary bui
 - You can now switch to and run the **SparkTutorial assembly** target in the top right Intellij bar
 - Find your fat-jar in **spark-tutorial/target/scala-2.12/SparkTutorialSBT-assembly-0.1.jar**
 
-# Some further notes for cluster submits: 
+## Some further notes for cluster submits: 
 - Modify the settings in the build.sbt to match the spark installation (Relevant settings are both the **scalaVersion** parameter and the specific versions of all the spark packages (for example in **libraryDependencies += **org.apache.spark** %% **spark-core** % **x**** replace x with the version of the spark installation, where you want to execute the code). If the scala version and the spark version do not exactly match those of the spark installation, you will encounter errors while executing the jar that are not really helpful in determining the cause.
