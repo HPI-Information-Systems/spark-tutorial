@@ -1,17 +1,29 @@
 package de.hpi.spark_tutorial
 
-import org.apache.spark.sql.{Dataset, Encoder, SparkSession}
-import org.apache.spark.ml.Pipeline
-import org.apache.spark.ml.classification.DecisionTreeClassificationModel
-import org.apache.spark.ml.classification.DecisionTreeClassifier
-import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
-import org.apache.spark.ml.feature.{IndexToString, StringIndexer, VectorIndexer}
-import org.apache.log4j.Logger
-import org.apache.log4j.Level
+import org.apache.log4j.{Level, Logger}
+import org.apache.spark.sql.SparkSession
 
 object SimpleSpark extends App {
 
   override def main(args: Array[String]): Unit = {
+
+    // Parameter parsing
+    type OptionMap = Map[Symbol, Any]
+    def nextOption(map : OptionMap, list: List[String]) : OptionMap = {
+      list match {
+        case Nil => map
+        case "--path" :: value :: tail => nextOption(map ++ Map('path -> value), tail)
+        case "--cores" :: value :: tail => nextOption(map ++ Map('cores -> value.toInt), tail)
+        case "--partitions" :: value :: tail => nextOption(map ++ Map('partitions -> value.toInt), tail)
+        case string :: Nil => nextOption(map, Nil)
+        case string :: tail => nextOption(map, tail)
+      }
+    }
+    val options = nextOption(Map(), args.toList)
+
+    val path = options.getOrElse('path, "data/TPCH")
+    val cores = options.getOrElse('cores, 32)
+    val partitions = options.getOrElse('partitions, 64)
 
     // Turn off logging
     Logger.getLogger("org").setLevel(Level.OFF)
@@ -34,11 +46,11 @@ object SimpleSpark extends App {
     val sparkBuilder = SparkSession
       .builder()
       .appName("SparkTutorial")
-      .master("local[32]") // local, with 32 worker cores
+      .master(s"local[$cores]") // local, with $cores worker cores
     val spark = sparkBuilder.getOrCreate()
 
     // Set the default number of shuffle partitions (default is 200, which is too high for local deployment)
-    spark.conf.set("spark.sql.shuffle.partitions", "64") //
+    spark.conf.set("spark.sql.shuffle.partitions", partitions.toString)
 
     println("---------------------------------------------------------------------------------------------------------")
 
@@ -59,7 +71,7 @@ object SimpleSpark extends App {
     //------------------------------------------------------------------------------------------------------------------
 
     val inputs = List("region", "nation", "supplier", "customer", "part", "lineitem", "orders")
-      .map(name => s"data/TPCH/tpch_$name.csv")
+      .map(name => s"$path/tpch_$name.csv")
 
     time {Sindy.discoverINDs(inputs, spark)}
   }
