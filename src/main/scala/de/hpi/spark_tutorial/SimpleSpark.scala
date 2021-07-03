@@ -6,7 +6,7 @@ import org.apache.spark.sql.SparkSession
 object SimpleSpark extends App {
 
   override def main(args: Array[String]): Unit = {
-
+   import org.apache.spark.sql.sources.DataSourceRegister
     // Parameter parsing
     type OptionMap = Map[Symbol, Any]
     def nextOption(map : OptionMap, list: List[String]) : OptionMap = {
@@ -54,17 +54,6 @@ object SimpleSpark extends App {
 
     println("---------------------------------------------------------------------------------------------------------")
 
-    //------------------------------------------------------------------------------------------------------------------
-    // Spark Tutorial
-    //------------------------------------------------------------------------------------------------------------------
-
-    Tutorial.execute(spark)
-
-    //------------------------------------------------------------------------------------------------------------------
-    // Longest Common Substring Search
-    //------------------------------------------------------------------------------------------------------------------
-
-    time {LongestCommonSubstring.discoverLCSs("students2", spark)}
 
     //------------------------------------------------------------------------------------------------------------------
     // Inclusion Dependency Discovery (Homework)
