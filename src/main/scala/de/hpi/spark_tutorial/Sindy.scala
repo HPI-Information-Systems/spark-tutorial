@@ -23,16 +23,15 @@ object Sindy {
     val keysToSet = groupedValues.mapGroups { case (_, rows) => rows.map(_._2).toSet }
       .dropDuplicates
 
-    val inclusion = keysToSet.flatMap(set => set.map(key => (key, set - key))).show()
+    val inclusion = keysToSet.flatMap(set => set.map(key => (key, set - key)))
 
-/*    val intersect = inclusion.groupByKey(_._1)
-      .mapGroups { case (key, iterator) => (key, iterator.foldLeft(iterator.next()._2) { (elem1, elem2) => elem1.intersect(elem2._2) }) }
+    val intersect = inclusion.groupByKey(_._1).reduceGroups((a, b) => (a._1, a._2.intersect(b._2))).map {case (a,(_,b)) => (a,b) }
       .filter(_._2.nonEmpty)
       .sort("_1")
 
 
       intersect
       .collect()
-      .foreach { case (dependentKey, referencedKey) => println(dependentKey + " < " + referencedKey.toList.sorted.reduce(_ + "," + _)) }*/
+      .foreach { case (dependentKey, referencedKey) => println(dependentKey + " < " + referencedKey.toList.sorted.reduce(_ + "," + _)) }
   }
 }
