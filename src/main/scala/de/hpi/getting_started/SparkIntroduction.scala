@@ -1,6 +1,6 @@
 package de.hpi.getting_started
 
-import org.apache.spark.sql.{Dataset, Encoder, SparkSession}
+import org.apache.spark.sql.{Dataset, Encoder, Encoders, SparkSession}
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.DecisionTreeClassificationModel
 import org.apache.spark.ml.classification.DecisionTreeClassifier
@@ -10,7 +10,9 @@ import org.apache.log4j.Logger
 import org.apache.log4j.Level
 
 // A Scala case class; works out of the box as Dataset type using Spark's implicit encoders
-case class Person(name:String, surname:String, age:Int)
+case class Person(name:String, surname:String, age:Int){
+
+}
 
 object SparkIntroduction extends App {
 
@@ -61,7 +63,16 @@ object SparkIntroduction extends App {
     println("---------------------------------------------------------------------------------------------------------")
 
     // Basic terminal operations
-    filtered.foreach(s => println(s)) // performs an action for each element (on the node, where this is being executed, can be anywhere in the cluster!)
+    //val myMap = collection.mutable.HashMap[String,Int]()
+//    val myMap = filtered
+//      .map(s => (s,s.size))
+//      .collect()
+//      .toMap
+    val map = collection.mutable.HashMap[String,Int]()
+    filtered.foreach(s => {
+      map.put(s,s.size)
+      println(s)
+    }) // performs an action for each element (on the node, where this is being executed, can be anywhere in the cluster!)
     val collected = filtered.collect() // collects the entire dataset to the driver process (if it is too large this will cause an OutOfMemory Error)
     val reduced = filtered.reduce((s1, s2) => s1 + "," + s2) // reduces all values successively to a single one using the function
     List(collected, reduced).foreach(result => println(result.getClass))
@@ -100,17 +111,19 @@ object SparkIntroduction extends App {
 
     sqlResult // results of sql queries are dataframes
       .as[(String, Int, Double, String)] // DS
-      .sort(desc("Salary")) // desc() is a standard function from the spark.sql.functions package
+      .sort(org.apache.spark.sql.functions.desc("Salary")) // desc() is a standard function from the spark.sql.functions package
       .head(10)
       .foreach(println(_))
 
     println("---------------------------------------------------------------------------------------------------------")
 
     // Grouping and aggregation for typed Datasets:
+    val res = employees
+      .groupByKey { case (name, age, salary, company) => company }
     val topEarners = employees
       .groupByKey { case (name, age, salary, company) => company }
       .mapGroups { case (key, iterator) =>
-          val topEarner = iterator.toList.maxBy(t => t._3) // could be problematic: Why?
+          val topEarner = iterator.maxBy(t => t._3) // could be problematic: Why?
           (key, topEarner._1, topEarner._3)
       }
       .sort(desc("_3"))
@@ -139,7 +152,7 @@ object SparkIntroduction extends App {
       Person("Elon", "Musk", 34)))
 
     persons
-      .map(_.name + " says hello")
+      .map(person => person.name + " says hello")
       .collect()
       .foreach(println(_))
 

@@ -15,7 +15,6 @@ import org.apache.spark.sql.{Dataset, SparkSession}
 class Exercise_3d(spark: SparkSession, changeRecords: Dataset[ChangeRecord]) {
 
   import spark.implicits._
-
   /***
    *
    * @return a map containing all change signatures that appear in the data. Format:

@@ -3,7 +3,6 @@ package de.hpi.getting_started
 import java.time.LocalDateTime
 
 object ScalaIntroduction extends App {
-
   /////////////////////////////////////////////////////////////////////////////////
   /////////////////////////////////////BASICS//////////////////////////////////////
   /////////////////////////////////////////////////////////////////////////////////
@@ -22,9 +21,13 @@ object ScalaIntroduction extends App {
   val list2 = List(1,2,3.4)
   val list3 = List(1,2,"a") //type defaults to Any (similar to java Object)
   //if statements like in java:
+  val telephoneBook = Map( ("Leon","123456"),("Laura","3456789") )
+  println(telephoneBook.apply("Leon"))
+  println(telephoneBook("Leon"))
+
   if(b==3){
     println("yes")
-  } else {
+  } else if(b==4) {
     println("no")
   }
 
@@ -32,13 +35,22 @@ object ScalaIntroduction extends App {
   ////////////////////////////////////////LOOPS////////////////////////////////////////
   /////////////////////////////////////////////////////////////////////////////////////
   //standard for loops:
-  for( i <- 0 until list.size){
+  println(telephoneBook apply "Leon")
+  private val range: Range = 0 until list.size
+  for(i <- range){
     println(list(i))
   }
-  //The scala-way: standard loop as function on the list:
-  list.foreach(elem => {
+
+  for (elem <- list){
     println(elem)
-  })
+  }
+  //The scala-way: standard loop as function on the list:
+  def printElement(i:Int):Int = {
+    println(i)
+    i+2
+  }
+
+  list.foreach(printElement)
   //while-loops also exist - but they are rarely needed
   var i=0
   while(i<list.size){
@@ -66,7 +78,10 @@ object ScalaIntroduction extends App {
   val myFunction:(Int => Int) = addTwo
   println(myFunction(3) == addTwo(3))
   //we can define anonymous functions:
-  val myStringReverseFunction = (string:String) => string.reverse
+  val myStringReverseFunction = (string:String) => {
+    val a = string + ".csv"
+    a.reverse
+  }
   println(myStringReverseFunction(a))
 
   //access to java standard library via the java package:
@@ -77,13 +92,13 @@ object ScalaIntroduction extends App {
   //////////////////////////////////////////////////////////////////////////////////////
   //immutable collections
   val myList = Seq(1,2,3)
-  //myList(0) = 1 - does not work
   //the only way to change immutable collections is through transformations (which create new collections):
   val withOutFIrstElement = myList.tail
   val longerList = myList ++ Seq(2,3,4,5) //concatenation
+  val res = longerList.map(i => i+2)
   //Many functions on collections expect other functions that they apply to the collection. We can use them to create transformation pipelines
   val longerListTransformed = longerList
-    .map(addTwo) //map function expects another function that is applied to every element
+    .map(n => n+2) //map function expects another function that is applied to every element
     .filter(n => n != 3) //filter keeps all elements that fulfill the predicate.
     .sorted //self-explanatory
   //More syntactic sugar: If an anonymous function uses every parameter exactly once, we can skip the parameter declaration and use _ instead:
@@ -141,15 +156,24 @@ object ScalaIntroduction extends App {
   /////////////////////////////////////////////////////////////////////////////////////
   /////////////////////////////////////CLASSES////////////////////////////////////
   /////////////////////////////////////////////////////////////////////////////////////
-  //you can think of case-classes as named tuples. Typically implemented as immutable objects (but don't have to be)
-  //case classes automatically implement the equals method based on the fields that are passed to their constructors
+
+
   class Pet(val name:String,            //immutable public field
-            var owner:String,           //mutable public field
+            var ownerName:String,           //mutable public field
             private val petID:Int,      //immutable private field
             creationTime:LocalDateTime  //not a field at all but can still be used in the class (behaves like a private field in may cases, but there are differences, for example in serialization)
            ){
     //there is no explicit constructor, instead, we can write constructor code here
     println(s"Constructor of Pet just got called at $creationTime")
+
+    //secondary constructor must call the default constructor:
+    def this(name:String,ownerName:String) = {
+      this(name,ownerName,-1,LocalDateTime.now())
+    }
+
+    def owner:String = {
+      ownerName + " is the owner"
+    }
 
     //class method (everything is public by default)
     //a pretty good explanation why making everything public by default is much less bad in scala as opposed to for example java: https://www.scala-lang.org/old/node/6468
@@ -159,7 +183,6 @@ object ScalaIntroduction extends App {
 
   }
   val myPet = new Pet("Jolly Jumper","Lucky Luke",0,LocalDateTime.now())
-
   /////////////////////////////////////////////////////////////////////////////////////
   /////////////////////////////////////CASE CLASSES////////////////////////////////////
   /////////////////////////////////////////////////////////////////////////////////////
@@ -168,6 +191,7 @@ object ScalaIntroduction extends App {
   //Case classes are often used for data-classes
   case class Exercise(number:Int,part:Char,description:String,solution:Option[String]){
     //you can define methods and additional members here, just like for normal classes
+
   }
   val exercise1 = Exercise(1,'a',"Write any scala Program that compiles",None) //does not require new-keyword
   val exercise1_identical = Exercise(1,'a',"Write any scala Program that compiles",None)
